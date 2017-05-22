@@ -13,6 +13,7 @@ package org.eclipse.lsp4e.php;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,12 +36,21 @@ public class PHPLanguageServer implements StreamConnectionProvider {
 		commands.add("php");
 		Bundle bundle = Activator.getContext().getBundle();
 		Path workingDir = Path.EMPTY;
+		URL serverUrl = bundle.getEntry("/server");
+		if (serverUrl == null) {
+			// in development mode the server is copied to the target directory
+			serverUrl = bundle.getEntry("/target/server");
+		}
+		if (serverUrl == null) { 
+			throw new IllegalStateException ("Language server is not available in bundle "+bundle.getSymbolicName()+".");
+		}
 		try {
-			workingDir = new Path(FileLocator.toFileURL(FileLocator.find(bundle, new Path("server"), null)).getPath());
-			commands.add(workingDir.append("/bin/php-language-server.php").toOSString());
+			workingDir = new Path(FileLocator.toFileURL(serverUrl).getPath());
 		} catch (IOException e) {
 			LanguageServerPlugin.logError(e);
 		}
+		commands.add(workingDir.append("/bin/php-language-server.php").toOSString());
+		
 		if (Platform.getOS().equals(Platform.OS_WIN32)) {
 			commands.add("--tcp=127.0.0.1:" + CONNECTION_PORT);
 			provider = new SocketStreamConnectionProvider(commands, workingDir.toOSString(), CONNECTION_PORT);
